@@ -1,38 +1,74 @@
+// The Tired Dark Lord: A 100-Word Villain Monologue
+// Writes the monologue to /output/entry.txt and validates it against
+// the competition gate (1-600 characters, non-whitespace, ~100 words).
+
 import { mkdirSync, writeFileSync } from "node:fs";
 
-// The Tired Dark Lord: a 100-word monologue for a fantasy villain
-// who is secretly just very tired. The tiredness lives in the
-// rhythm — short fragments, pauses, small deflections — never in a
-// plain statement. Three hundred years holding the Black Spire up,
-// and what holds it is not dark arts but mortar and a ledger: taxes
-// in grain, goats and first sons, a cult that meets Tuesdays, a
-// leak over his bed. He is specific, with a history and a scheme,
-// and the sting lands in the last line: the stew is on.
-const monologue =
+const MONOLOGUE =
   "Sit. Not the throne — the stool. It wobbles. Three hundred years I have held the Black Spire up, and do you know what holds it? Not dark arts. Mortar. And a ledger. I tax the farms in grain, in goats, in first sons — and still the roof leaks. The cult meets Tuesdays. Tuesdays! I have a doom to speak and a drip over my bed. So take the sword. Strike. Just — hold on. Let me find my specs first. I want to see the face of the fool who ends me. Ah. There. Now. Quick. The stew is on.";
 
-// The gate: UTF-8 text, 1-600 characters. Near 100 words: keep it
-// between 90 and 110 so an invalid monologue can never ship.
+// Gate constants for this competition (see RULES.txt: 1-600 chars).
+const MIN_CHARS = 1;
 const MAX_CHARS = 600;
-const MIN_WORDS = 90;
-const MAX_WORDS = 110;
+const EXPECTED_CHARS = 482;
+const EXPECTED_WORDS = 102;
 
-function oneParagraph(text: string): string {
-  const line = text.replace(/\s+/g, " ").trim();
-  const words = line === "" ? 0 : line.split(" ").length;
-  if (line.length < 1 || line.length > MAX_CHARS) {
-    throw new Error(`monologue must be 1-${MAX_CHARS} chars, got ${line.length}`);
-  }
-  if (words < MIN_WORDS || words > MAX_WORDS) {
-    throw new Error(`monologue must be ${MIN_WORDS}-${MAX_WORDS} words, got ${words}`);
-  }
-  if (line.includes("\n")) {
-    throw new Error("monologue must be a single paragraph");
-  }
-  return line;
+function wordCount(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return words.length;
 }
 
-const line = oneParagraph(monologue);
+interface GateFailure {
+  check: string;
+  detail: string;
+}
+
+function checkGate(text: string): GateFailure[] {
+  const failures: GateFailure[] = [];
+  if (text.trim().length === 0) {
+    failures.push({ check: "non-empty", detail: "entry is empty or only whitespace" });
+  }
+  if (text.length < MIN_CHARS || text.length > MAX_CHARS) {
+    failures.push({
+      check: "length",
+      detail: `entry is ${text.length} characters, gate is ${MIN_CHARS}-${MAX_CHARS}`,
+    });
+  }
+  if (text.length !== EXPECTED_CHARS) {
+    failures.push({
+      check: "exact-chars",
+      detail: `expected ${EXPECTED_CHARS} characters, got ${text.length}`,
+    });
+  }
+  const words = wordCount(text);
+  if (words !== EXPECTED_WORDS) {
+    failures.push({
+      check: "word-count",
+      detail: `expected ${EXPECTED_WORDS} words, got ${words}`,
+    });
+  }
+  if (text !== text.trim()) {
+    failures.push({ check: "no-edge-whitespace", detail: "entry has leading or trailing whitespace" });
+  }
+  if (/ {2,}/.test(text) || /\n/.test(text)) {
+    failures.push({ check: "single-line-spacing", detail: "entry has double spaces or newlines" });
+  }
+  return failures;
+}
+
+function validateGate(text: string): void {
+  const failures = checkGate(text);
+  if (failures.length > 0) {
+    const report = failures.map((f) => `${f.check}: ${f.detail}`).join("; ");
+    throw new Error(`gate failed (${failures.length}): ${report}`);
+  }
+}
+
+validateGate(MONOLOGUE);
 
 mkdirSync("/output", { recursive: true });
-writeFileSync("/output/entry.txt", line, "utf8");
+writeFileSync("/output/entry.txt", MONOLOGUE, "utf8");
+
+console.log(
+  `wrote /output/entry.txt (${MONOLOGUE.length} chars, ${wordCount(MONOLOGUE)} words)`,
+);
